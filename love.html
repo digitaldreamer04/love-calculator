@@ -1,0 +1,168 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Love Calculator</title>
+  <meta name="description" content="Type two names and see how well they match.">
+  <link rel="icon" href="love-icon.tmp">
+ 
+  <link href="love.css" rel="stylesheet">
+</head>
+
+<body>
+  <main class="page">
+
+    <section>
+      <h1>Love calculator</h1>
+      <p class="welcome">Hello 🙋‍♂️! Welcome to my love calculator. Type two names to see how well they match.</p>
+
+      <!-- Using a <form> means pressing Enter works too, not just clicking the button. -->
+      <form id="loveForm" novalidate>
+        <div class="field">
+          <label for="yourName">Your name</label>
+          <input id="yourName" name="yourName" type="text" maxlength="40" autocomplete="off">
+        </div>
+
+        <div class="amp" aria-hidden="true">&amp;</div>
+
+        <div class="field">
+          <label for="crushName">Your crush's name</label>
+          <input id="crushName" name="crushName" type="text" maxlength="40" autocomplete="off">
+        </div>
+
+        <p id="error" class="error" role="alert"></p>
+        <button type="submit">Calculate love</button>
+      </form>
+    </section>
+
+    <section class="meter">
+      <svg class="heart" viewBox="0 0 100 90" role="img" aria-label="A heart that fills up to show the love percentage">
+        <defs>
+          <path id="heartPath" d="M50 86 C22 63 3 46 3 27 C3 13 13 4 26 4 C36 4 45 9 50 18 C55 9 64 4 74 4 C87 4 97 13 97 27 C97 46 78 63 50 86 Z"/>
+          <clipPath id="heartClip"><use href="#heartPath"/></clipPath>
+        </defs>
+        <use href="#heartPath" class="heart-back"/>
+        <!-- This rectangle rises from the bottom. The clip-path cuts it into a heart shape. -->
+        <rect id="heartFill" class="heart-fill" x="0" y="90" width="100" height="90" clip-path="url(#heartClip)"/>
+        <use href="#heartPath" class="heart-line"/>
+      </svg>
+
+      <p class="percent" id="percent" aria-hidden="true">0%</p>
+      <p class="message" id="message">Enter two names to fill the heart.</p>
+      <p class="thanks" id="thanks" hidden>Thank you for using our love calculator 😎</p>
+      <p class="fine">Just for fun. The result comes from the letters in the two names, so the same names always give the same answer.</p>
+
+      <!-- Read out by screen readers once the result is ready. -->
+      <p id="announce" class="sr-only" role="status"></p>
+    </section>
+
+  </main>
+
+  <script>
+    
+    const form = document.getElementById('loveForm');
+    const yourNameInput = document.getElementById('yourName');
+    const crushNameInput = document.getElementById('crushName');
+    const errorEl = document.getElementById('error');
+    const percentEl = document.getElementById('percent');
+    const messageEl = document.getElementById('message');
+    const thanksEl = document.getElementById('thanks');
+    const announceEl = document.getElementById('announce');
+    const heartFill = document.getElementById('heartFill');
+
+    
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let animationId = null;
+
+    
+    function calculateLovePercent(nameOne, nameTwo) {
+      const letters = (nameOne + nameTwo).toLowerCase().replace(/\s+/g, ''); // remove spaces
+      let score = 0;
+      for (const character of letters) {
+        score += character.codePointAt(0);
+      }
+      return (score % 51) + 50;
+    }
+
+    
+    function getMessage(percent) {
+      if (percent >= 90) return 'A match made in heaven! 💕';
+      if (percent >= 80) return 'Looking really good. Give it a shot! 💖';
+      if (percent >= 70) return 'Great chemistry. There is real potential here! 😍';
+      if (percent >= 60) return 'Good vibes. Get to know each other better! 😊';
+      if (percent >= 50) return 'A solid start. Build a friendship first and see where it goes! 🙂';
+      if (percent >= 40) return 'Opposites attract. Keep trying, because relationships take time to grow! 😉';
+      if (percent >= 30) return 'It may take some effort, but every love story moves at its own pace. 🌱';
+      if (percent >= 20) return 'Not an easy match, but you might make great friends! 🤝';
+      return 'The stars are not lined up today. Try again tomorrow! 🌙';
+    }
+
+    
+    function setHeartLevel(percent) {
+      heartFill.setAttribute('y', 86 - (82 * percent) / 100);
+    }
+
+
+    function showResult(percent) {
+      cancelAnimationFrame(animationId);     // stop any animation that is still running
+      messageEl.textContent = '';
+      thanksEl.hidden = true;
+      announceEl.textContent = '';
+
+      const duration = prefersReducedMotion ? 0 : 1600;   
+      const startTime = performance.now();
+
+      function step(now) {
+        const progress = duration === 0 ? 1 : Math.min((now - startTime) / duration, 1);
+        const eased = 1 - Math.pow(1 - progress, 3);      
+        const current = percent * eased;
+
+        percentEl.textContent = Math.round(current) + '%';
+        setHeartLevel(current);
+
+        if (progress < 1) {
+          animationId = requestAnimationFrame(step);     
+        } else {
+          const message = getMessage(percent);
+          messageEl.textContent = message;
+          thanksEl.hidden = false;
+          announceEl.textContent = percent + '% match. ' + message;
+        }
+      }
+
+      animationId = requestAnimationFrame(step);
+    }
+
+    
+    form.addEventListener('submit', (event) => {
+      event.preventDefault();                
+
+      const nameOne = yourNameInput.value.trim();
+      const nameTwo = crushNameInput.value.trim();
+
+      
+      yourNameInput.setAttribute('aria-invalid', nameOne === '');
+      crushNameInput.setAttribute('aria-invalid', nameTwo === '');
+
+      if (nameOne === '' || nameTwo === '') {
+        errorEl.textContent = 'Enter both names to calculate.';
+        (nameOne === '' ? yourNameInput : crushNameInput).focus();
+        return;
+      }
+
+      errorEl.textContent = '';
+      showResult(calculateLovePercent(nameOne, nameTwo));
+    });
+
+    
+    [yourNameInput, crushNameInput].forEach((input) => {
+      input.addEventListener('input', () => {
+        input.setAttribute('aria-invalid', 'false');
+        if (yourNameInput.value.trim() && crushNameInput.value.trim()) errorEl.textContent = '';
+      });
+    });
+  </script>
+</body>
+</html>
